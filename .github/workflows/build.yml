@@ -1,0 +1,51 @@
+name: Build mod
+on:
+  workflow_dispatch:
+    inputs:
+      zip:
+        description: "Имя zip-файла проекта в корне репозитория"
+        required: true
+        default: "railgrip-forge-1.12.2.zip"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Java 8 нужна для компиляции мода под Forge 1.12.2 (тулчейн RetroFuturaGradle)
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 8
+
+      # Java 21 запускает сам Gradle 9.5.0 (этот шаг делает 21 версией по умолчанию)
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.5.0
+
+      - name: Unzip project
+        run: |
+          ls -la
+          mkdir -p proj
+          unzip -oq "${{ github.event.inputs.zip }}" -d proj
+
+      - name: Build
+        run: |
+          DIR=$(dirname "$(find proj -name build.gradle | head -1)")
+          echo "Building $DIR"
+          cd "$DIR"
+          gradle --version
+          gradle build --no-daemon --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mod-jar
+          path: |
+            proj/**/build/libs/*.jar
+            !proj/**/build/libs/*-dev.jar
+            !proj/**/build/libs/*-sources.jar
